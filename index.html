@@ -6,6 +6,22 @@
     <title>Arielletolome.GitHub.io by ArielleTolome</title>
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/github-dark.css">
+    <style>
+      /* Visual feedback for clicks to prevent rage clicks */
+      a.clicked, button.clicked {
+        opacity: 0.7;
+        transform: scale(0.98);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+      
+      /* Prevent double-click text selection which can be frustrating */
+      a, button {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+    </style>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
     <script src="javascripts/respond.js"></script>
     <!--[if lt IE 9]>
@@ -15,6 +31,43 @@
     <link rel="stylesheet" href="stylesheets/ie.css">
     <![endif]-->
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    
+    <!-- Sentry SDK Integration -->
+    <script
+      src="https://js.sentry-cdn.com/c72c6b6dcafb9bf2de1ab4f5f34b99d3.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      // Configure Sentry with rage click tracking
+      if (window.Sentry) {
+        Sentry.onLoad(function() {
+          Sentry.init({
+            // DSN is public and safe to expose - Sentry validates events server-side
+            dsn: "https://c72c6b6dcafb9bf2de1ab4f5f34b99d3@o4508466165981184.ingest.us.sentry.io/4508466170044416",
+            integrations: [
+              Sentry.replayIntegration({
+                maskAllText: false,
+                blockAllMedia: false,
+              }),
+            ],
+            // Session Replay
+            replaysSessionSampleRate: 0.1,
+            replaysOnErrorSampleRate: 1.0,
+            // Performance Monitoring - reduced for production efficiency
+            tracesSampleRate: 0.1,
+            // Track rage clicks
+            beforeSend(event) {
+              // Add additional context if this is a rage click event
+              if (event.contexts && event.contexts.replay && event.contexts.replay.rage_click) {
+                event.tags = event.tags || {};
+                event.tags.user_behavior = 'rage_click';
+              }
+              return event;
+            }
+          });
+        });
+      }
+    </script>
 
   </head>
   <body>
@@ -63,6 +116,67 @@
 
     </div>
     <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+    <script>
+      // Debounce function to prevent rapid repeated clicks
+      function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+
+      // Add visual feedback and debouncing to all clickable elements
+      document.addEventListener('DOMContentLoaded', function() {
+        // Select all links and buttons
+        const clickableElements = document.querySelectorAll('a, button');
+        
+        clickableElements.forEach(function(element) {
+          // Track clicks for potential rage click detection
+          let clickCount = 0;
+          let clickTimer = null;
+          
+          // Combined click handler for visual feedback and rage click detection
+          element.addEventListener('click', function(e) {
+            // Add visual feedback
+            this.classList.add('clicked');
+            setTimeout(() => {
+              this.classList.remove('clicked');
+            }, 300);
+            
+            // Track click count
+            clickCount++;
+            
+            // Reset counter after 2 seconds
+            clearTimeout(clickTimer);
+            clickTimer = setTimeout(() => {
+              clickCount = 0;
+            }, 2000);
+
+            // If user clicks more than 3 times within 2 seconds, it might be a rage click
+            if (clickCount > 3 && window.Sentry) {
+              Sentry.captureMessage('Potential rage click detected', {
+                level: 'warning',
+                tags: {
+                  element_type: this.tagName.toLowerCase(),
+                  element_text: this.textContent.trim().substring(0, 50)
+                },
+                extra: {
+                  click_count: clickCount,
+                  element_href: this.href || 'N/A',
+                  element_classes: this.className
+                }
+              });
+            }
+          });
+        });
+      });
+    </script>
     
   </body>
 </html>
