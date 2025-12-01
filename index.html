@@ -42,6 +42,7 @@
       if (window.Sentry) {
         Sentry.onLoad(function() {
           Sentry.init({
+            // DSN is public and safe to expose - Sentry validates events server-side
             dsn: "https://c72c6b6dcafb9bf2de1ab4f5f34b99d3@o4508466165981184.ingest.us.sentry.io/4508466170044416",
             integrations: [
               Sentry.replayIntegration({
@@ -52,8 +53,8 @@
             // Session Replay
             replaysSessionSampleRate: 0.1,
             replaysOnErrorSampleRate: 1.0,
-            // Performance Monitoring
-            tracesSampleRate: 1.0,
+            // Performance Monitoring - reduced for production efficiency
+            tracesSampleRate: 0.1,
             // Track rage clicks
             beforeSend(event) {
               // Add additional context if this is a rage click event
@@ -136,20 +137,19 @@
         const clickableElements = document.querySelectorAll('a, button');
         
         clickableElements.forEach(function(element) {
-          // Add visual feedback on click
-          element.addEventListener('click', function(e) {
-            // Add a temporary 'clicked' class for visual feedback
-            this.classList.add('clicked');
-            setTimeout(() => {
-              this.classList.remove('clicked');
-            }, 300);
-          });
-
           // Track clicks for potential rage click detection
           let clickCount = 0;
           let clickTimer = null;
           
+          // Combined click handler for visual feedback and rage click detection
           element.addEventListener('click', function(e) {
+            // Add visual feedback
+            this.classList.add('clicked');
+            setTimeout(() => {
+              this.classList.remove('clicked');
+            }, 300);
+            
+            // Track click count
             clickCount++;
             
             // Reset counter after 2 seconds
